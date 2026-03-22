@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DILIVRY – Application Livreur</title>
+<style>
+  :root{
+    --primary:#1F3864;--accent:#F97316;--success:#16A34A;
+    --danger:#DC2626;--info:#0EA5E9;--gray:#64748B;
+    --bg:#F8FAFC;--white:#fff;--border:#E2E8F0;--text:#1E293B;
+    --dark:#0F172A;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',system-ui,sans-serif}
+  body{background:#0F172A;display:flex;justify-content:center;align-items:center;min-height:100vh;padding:20px}
+  .device{width:390px;height:844px;background:var(--bg);border-radius:44px;overflow:hidden;
+    position:relative;box-shadow:0 40px 80px rgba(0,0,0,.5);border:8px solid #111;
+    display:flex;flex-direction:column}
+  .status-bar{background:var(--dark);padding:12px 28px 6px;display:flex;justify-content:space-between;
+    align-items:center;font-size:12px;font-weight:600;color:#fff;flex-shrink:0}
+  .screen{flex:1;overflow:hidden;position:relative;display:flex;flex-direction:column}
+  .page{position:absolute;inset:0;background:var(--bg);transition:.3s ease;transform:translateX(100%);display:flex;flex-direction:column}
+  .page.active{transform:translateX(0)}
+
+  /* ── ONLINE TOGGLE ── */
+  .online-toggle{display:flex;align-items:center;gap:10px;padding:12px 20px;
+    background:var(--white);border-bottom:1px solid var(--border);flex-shrink:0}
+  .toggle-switch{width:52px;height:28px;background:#E2E8F0;border-radius:14px;
+    position:relative;cursor:pointer;transition:.3s}
+  .toggle-switch.on{background:var(--success)}
+  .toggle-knob{position:absolute;width:22px;height:22px;background:#fff;border-radius:50%;
+    top:3px;left:3px;transition:.3s;box-shadow:0 2px 4px rgba(0,0,0,.2)}
+  .toggle-switch.on .toggle-knob{left:27px}
+
+  /* ── MAP BACKGROUND ── */
+  .map-bg{height:300px;background:linear-gradient(160deg,#1F3864 0%,#2563EB 60%,#0EA5E9 100%);
+    position:relative;overflow:hidden;flex-shrink:0}
+  .map-grid{position:absolute;inset:0;opacity:.1;
+    background:repeating-linear-gradient(0deg,transparent,transparent 35px,rgba(255,255,255,.6) 35px,rgba(255,255,255,.6) 36px),
+               repeating-linear-gradient(90deg,transparent,transparent 35px,rgba(255,255,255,.6) 35px,rgba(255,255,255,.6) 36px)}
+  .rider-position{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    font-size:42px;animation:float 3s ease-in-out infinite}
+  @keyframes float{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-55%) scale(1.05)}}
+  .map-overlay{position:absolute;bottom:16px;left:0;right:0;padding:0 16px;display:flex;justify-content:space-between;align-items:flex-end}
+  .status-pill{background:rgba(0,0,0,.6);backdrop-filter:blur(10px);
+    color:#fff;padding:8px 16px;border-radius:20px;font-size:12px;font-weight:700;
+    display:flex;align-items:center;gap:6px}
+  .pulse-dot{width:8px;height:8px;border-radius:50%;background:var(--success);animation:pulse2 1.5s infinite}
+  @keyframes pulse2{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}
+
+  /* ── COURSE CARD (incoming) ── */
+  .incoming-card{background:var(--white);border-radius:20px 20px 0 0;
+    padding:20px;box-shadow:0 -4px 30px rgba(0,0,0,.15);flex-shrink:0;
+    margin-top:-20px;position:relative;z-index:10}
+  .course-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+  .course-title{font-size:16px;font-weight:800;color:var(--text)}
+  .course-earn{background:#DCFCE7;color:var(--success);font-size:18px;
+    font-weight:800;padding:6px 14px;border-radius:12px}
+
+  .route-info{display:flex;flex-direction:column;gap:0;background:var(--bg);
+    border-radius:14px;padding:4px 14px;margin-bottom:16px}
+  .route-point{display:flex;align-items:center;gap:12px;padding:12px 0}
+  .route-point:not(:last-child){border-bottom:1px dashed var(--border)}
+  .route-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+  .route-dot.pickup{background:var(--accent)}
+  .route-dot.deliver{background:var(--success)}
+  .route-label{font-size:11px;color:var(--gray);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  .route-addr{font-size:13px;font-weight:700;color:var(--text);margin-top:1px}
+
+  .course-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+  .meta-item{background:var(--bg);border-radius:10px;padding:10px;text-align:center}
+  .meta-val{font-size:15px;font-weight:800;color:var(--text)}
+  .meta-label{font-size:10px;color:var(--gray);font-weight:600;margin-top:2px}
+
+  .action-btns{display:grid;grid-template-columns:1fr 2fr;gap:10px}
+  .reject-btn{background:#FEE2E2;color:var(--danger);border:none;border-radius:14px;
+    padding:15px;font-size:15px;font-weight:700;cursor:pointer;transition:.2s}
+  .accept-btn{background:var(--success);color:#fff;border:none;border-radius:14px;
+    padding:15px;font-size:15px;font-weight:700;cursor:pointer;transition:.2s;
+    display:flex;align-items:center;justify-content:center;gap:8px}
+  .accept-btn:hover{opacity:.9}
+  .reject-btn:hover{opacity:.9}
+
+  /* ── TIMER ── */
+  .timer-ring{position:absolute;top:-10px;right:20px;width:56px;height:56px}
+  .timer-ring svg{transform:rotate(-90deg)}
+  .timer-ring circle{fill:none;stroke:var(--border);stroke-width:4}
+  .timer-ring .progress{stroke:var(--accent);stroke-dasharray:138;stroke-dashoffset:0;
+    animation:countdown 30s linear forwards}
+  @keyframes countdown{to{stroke-dashoffset:138}}
+  .timer-text{position:absolute;inset:0;display:flex;align-items:center;
+    justify-content:center;font-size:14px;font-weight:800;color:var(--accent)}
+
+  /* ── STATS CARDS ── */
+  .stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:16px 20px}
+  .stat-card{background:var(--white);border-radius:16px;padding:16px;
+    box-shadow:0 2px 8px rgba(0,0,0,.05);border:1px solid var(--border)}
+  .stat-icon{font-size:26px;margin-bottom:8px}
+  .stat-val{font-size:22px;font-weight:800;color:var(--text)}
+  .stat-label{font-size:11px;color:var(--gray);font-weight:600;margin-top:2px}
+  .stat-trend{font-size:11px;color:var(--success);font-weight:700;margin-top:4px}
+
+  /* ── EARNINGS ── */
+  .earn-bar{margin:0 20px 16px;background:var(--white);border-radius:16px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+  .earn-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0}
+  .earn-row:not(:last-child){border-bottom:1px solid var(--border)}
+
+  /* ── BOTTOM NAV ── */
+  .bottom-nav{background:var(--dark);border-top:1px solid rgba(255,255,255,.1);
+    display:flex;padding:10px 0 20px;flex-shrink:0}
+  .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+    cursor:pointer;padding:4px 0}
+  .nav-btn .icon{font-size:22px}
+  .nav-btn .label{font-size:10px;font-weight:600;color:rgba(255,255,255,.5)}
+  .nav-btn.active .label{color:var(--accent)}
+  .nav-btn.active .icon{transform:scale(1.1)}
+
+  /* ── ACTIVE DELIVERY ── */
+  .delivery-header{background:var(--success);padding:20px;text-align:center;flex-shrink:0}
+  .delivery-status-text{color:#fff;font-size:18px;font-weight:800}
+  .delivery-sub{color:rgba(255,255,255,.8);font-size:13px;margin-top:4px}
+  .step-row{display:flex;align-items:center;padding:14px 20px;gap:14px;border-bottom:1px solid var(--border)}
+  .step-circle{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+  .step-circle.done{background:#DCFCE7}
+  .step-circle.active{background:#FFF3E0;animation:pulse-soft 2s infinite}
+  .step-circle.pending{background:var(--bg)}
+  @keyframes pulse-soft{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+  .confirm-btn{background:var(--accent);color:#fff;border:none;border-radius:14px;
+    padding:14px 20px;font-size:15px;font-weight:700;width:calc(100% - 40px);
+    margin:16px 20px;cursor:pointer;display:flex;align-items:center;
+    justify-content:center;gap:8px}
+
+  .scrollable{overflow-y:auto;flex:1}
+  .scrollable::-webkit-scrollbar{display:none}
+  .page-header{background:var(--white);padding:16px 20px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:12px;flex-shrink:0}
+</style>
+</head>
+<body>
+<div class="device">
+  <div class="status-bar">
+    <span>9:41</span>
+    <div style="display:flex;gap:4px;align-items:center;color:#16A34A">
+      <span>●</span><span style="color:#fff">En ligne</span>
+      <span style="color:rgba(255,255,255,.6)">●●● 🔋</span>
+    </div>
+  </div>
+
+  <div class="screen">
+    <!-- ══════════ PAGE: HOME LIVREUR ══════════ -->
+    <div class="page active" id="pg-home">
+
+      <!-- Online Toggle -->
+      <div class="online-toggle">
+        <div class="toggle-switch on" onclick="toggleOnline(this)">
+          <div class="toggle-knob"></div>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--success)" id="online-label">● En ligne</div>
+          <div style="font-size:11px;color:var(--gray)">Disponible pour les courses</div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <div style="font-size:12px;color:var(--gray)">Aujourd'hui</div>
+          <div style="font-size:14px;font-weight:800;color:var(--accent)">28 500 GNF</div>
+        </div>
+      </div>
+
+      <!-- Map -->
+      <div class="map-bg">
+        <div class="map-grid"></div>
+        <div class="rider-position">🛵</div>
+        <div style="position:absolute;top:16px;right:16px;background:rgba(0,0,0,.5);
+          color:#fff;padding:6px 12px;border-radius:12px;font-size:11px;font-weight:600">
+          📍 Kaloum
+        </div>
+        <!-- Road hints -->
+        <div style="position:absolute;top:40%;left:0;right:0;height:2px;background:rgba(255,255,255,.15)"></div>
+        <div style="position:absolute;top:0;bottom:0;left:35%;width:2px;background:rgba(255,255,255,.15)"></div>
+        <div class="map-overlay">
+          <div class="status-pill">
+            <span class="pulse-dot"></span> En attente d'une course
+          </div>
+          <div style="background:rgba(255,255,255,.15);backdrop-filter:blur(10px);
+            padding:8px 14px;border-radius:20px;color:#fff;font-size:12px;font-weight:700;cursor:pointer">
+            🗺️ Zoom
+          </div>
+        </div>
+      </div>
+
+      <!-- Incoming course -->
+      <div class="incoming-card">
+        <div class="course-header">
+          <div class="course-title">🔔 Nouvelle course !</div>
+          <div class="course-earn">+8 500 GNF</div>
+          <!-- Timer ring -->
+          <div class="timer-ring">
+            <svg viewBox="0 0 48 48" width="56" height="56">
+              <circle cx="24" cy="24" r="22"></circle>
+              <circle class="progress" cx="24" cy="24" r="22"></circle>
+            </svg>
+            <div class="timer-text">28s</div>
+          </div>
+        </div>
+
+        <div class="route-info">
+          <div class="route-point">
+            <div class="route-dot pickup"></div>
+            <div>
+              <div class="route-label">Enlèvement</div>
+              <div class="route-addr">🍔 Resto Le Kaloum – Kaloum Centre</div>
+            </div>
+            <div style="margin-left:auto;font-size:11px;color:var(--gray)">0.8 km</div>
+          </div>
+          <div class="route-point">
+            <div class="route-dot deliver"></div>
+            <div>
+              <div class="route-label">Livraison</div>
+              <div class="route-addr">📍 Imm. Camara, Kaloum – Fatoumata D.</div>
+            </div>
+            <div style="margin-left:auto;font-size:11px;color:var(--gray)">2.1 km</div>
+          </div>
+        </div>
+
+        <div class="course-meta">
+          <div class="meta-item">
+            <div class="meta-val">2.9 km</div>
+            <div class="meta-label">Distance</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-val">~18 min</div>
+            <div class="meta-label">Durée estimée</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-val">Orange</div>
+            <div class="meta-label">Paiement</div>
+          </div>
+        </div>
+
+        <div class="action-btns">
+          <button class="reject-btn" onclick="rejectCourse()">✕ Refuser</button>
+          <button class="accept-btn" onclick="showPage('active-delivery')">
+            ✓ Accepter la course
+          </button>
+        </div>
+      </div>
+
+      <div class="bottom-nav">
+        <div class="nav-btn active"><span class="icon">🗺️</span><span class="label">Carte</span></div>
+        <div class="nav-btn" onclick="showPage('stats')"><span class="icon">📊</span><span class="label">Stats</span></div>
+        <div class="nav-btn" onclick="showPage('earnings')"><span class="icon">💰</span><span class="label">Gains</span></div>
+        <div class="nav-btn" onclick="showPage('profile-livreur')"><span class="icon">👤</span><span class="label">Profil</span></div>
+      </div>
+    </div>
+
+    <!-- ══════════ PAGE: ACTIVE DELIVERY ══════════ -->
+    <div class="page" id="pg-active-delivery">
+      <div class="delivery-header">
+        <div class="delivery-status-text">🛵 En route – Collecte en cours</div>
+        <div class="delivery-sub">Restez vigilant · Respectez le code de la route</div>
+      </div>
+
+      <div style="padding:16px 20px;background:var(--white);border-bottom:1px solid var(--border);flex-shrink:0">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:48px;height:48px;border-radius:12px;background:#FFF3E0;
+            display:flex;align-items:center;justify-content:center;font-size:24px">🍔</div>
+          <div>
+            <div style="font-size:14px;font-weight:700">Resto Le Kaloum</div>
+            <div style="font-size:12px;color:var(--gray)">📍 Kaloum Centre · 0.8 km</div>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:8px">
+            <button style="width:38px;height:38px;border-radius:50%;border:1.5px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer">📞</button>
+            <button style="width:38px;height:38px;border-radius:50%;background:var(--accent);border:none;color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer">🧭</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="scrollable">
+        <!-- Steps -->
+        <div class="step-row">
+          <div class="step-circle active">📍</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:700;color:var(--accent)">En route vers le commerçant</div>
+            <div style="font-size:11px;color:var(--gray)">ETA : 8 min · 0.8 km</div>
+          </div>
+          <span style="font-size:18px;color:var(--accent)">›</span>
+        </div>
+        <div class="step-row" style="opacity:.5">
+          <div class="step-circle pending">✅</div>
+          <div>
+            <div style="font-size:13px;font-weight:700">Confirmer la collecte</div>
+            <div style="font-size:11px;color:var(--gray)">Scanner QR ou appuyer "Collecté"</div>
+          </div>
+        </div>
+        <div class="step-row" style="opacity:.5">
+          <div class="step-circle pending">🛵</div>
+          <div>
+            <div style="font-size:13px;font-weight:700">Livrer chez le client</div>
+            <div style="font-size:11px;color:var(--gray)">Fatoumata D. · 2.1 km</div>
+          </div>
+        </div>
+        <div class="step-row" style="opacity:.5">
+          <div class="step-circle pending">📸</div>
+          <div>
+            <div style="font-size:13px;font-weight:700">Confirmer la livraison</div>
+            <div style="font-size:11px;color:var(--gray)">Photo preuve + confirmation</div>
+          </div>
+        </div>
+
+        <!-- Order details -->
+        <div style="margin:16px 20px;background:var(--white);border-radius:14px;
+          padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+          <div style="font-size:12px;font-weight:700;color:var(--gray);margin-bottom:10px">DÉTAILS DE LA COMMANDE #4532</div>
+          <div style="font-size:13px;margin-bottom:4px">• Poulet Braisé x1</div>
+          <div style="font-size:13px;margin-bottom:10px">• Riz Sauce Feuille x1</div>
+          <div style="border-top:1px solid var(--border);padding-top:10px">
+            <div style="font-size:12px;color:var(--gray)">Mode de paiement client</div>
+            <div style="font-size:13px;font-weight:700;margin-top:2px">🟠 Orange Money (prépayé)</div>
+          </div>
+        </div>
+
+        <!-- Client info -->
+        <div style="margin:0 20px 16px;background:var(--white);border-radius:14px;
+          padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+          <div style="font-size:12px;font-weight:700;color:var(--gray);margin-bottom:10px">CLIENT</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:40px;height:40px;border-radius:50%;background:var(--accent);
+              color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">F</div>
+            <div>
+              <div style="font-size:13px;font-weight:700">Fatoumata Diallo</div>
+              <div style="font-size:11px;color:var(--gray)">📍 Imm. Camara, Kaloum · 3ème étage, appt B</div>
+            </div>
+            <div style="margin-left:auto">
+              <button style="background:#EFF6FF;color:var(--info);border:none;padding:8px 14px;
+                border-radius:10px;font-size:12px;font-weight:700;cursor:pointer">📞 Appeler</button>
+            </div>
+          </div>
+          <div style="margin-top:10px;background:#FFF7ED;border-radius:10px;padding:8px 12px;font-size:12px;color:var(--accent)">
+            💬 <em>"Code portail : 1247. Interphone buzzer 3 fois"</em>
+          </div>
+        </div>
+
+        <button class="confirm-btn" onclick="confirmPickup()">
+          ✅ J'ai collecté la commande
+        </button>
+
+        <div style="padding:0 20px 16px">
+          <button style="background:#FEE2E2;color:var(--danger);border:none;border-radius:14px;
+            padding:14px;font-size:14px;font-weight:700;width:100%;cursor:pointer">
+            ⚠️ Signaler un problème
+          </button>
+        </div>
+      </div>
+
+      <div class="bottom-nav">
+        <div class="nav-btn" onclick="showPage('home')"><span class="icon">🗺️</span><span class="label">Carte</span></div>
+        <div class="nav-btn"><span class="icon">📊</span><span class="label">Stats</span></div>
+        <div class="nav-btn"><span class="icon">💰</span><span class="label">Gains</span></div>
+        <div class="nav-btn"><span class="icon">👤</span><span class="label">Profil</span></div>
+      </div>
+    </div>
+
+    <!-- ══════════ PAGE: STATS ══════════ -->
+    <div class="page" id="pg-stats">
+      <div class="page-header">
+        <div onclick="showPage('home')" style="cursor:pointer;font-size:20px">←</div>
+        <div style="font-size:16px;font-weight:700">Mes Statistiques</div>
+      </div>
+
+      <!-- Score card -->
+      <div style="margin:16px 20px;background:linear-gradient(135deg,#1F3864,#2563EB);
+        border-radius:20px;padding:20px;color:#fff">
+        <div style="font-size:13px;opacity:.8;margin-bottom:4px">Score DILIVRY</div>
+        <div style="font-size:40px;font-weight:800">94<span style="font-size:20px">/100</span></div>
+        <div style="font-size:12px;opacity:.8;margin-top:4px">🏆 Statut : Livreur Expert</div>
+        <div style="display:flex;gap:16px;margin-top:14px">
+          <div><div style="font-size:18px;font-weight:800">⭐ 4.9</div><div style="font-size:10px;opacity:.7">Note moyenne</div></div>
+          <div><div style="font-size:18px;font-weight:800">96%</div><div style="font-size:10px;opacity:.7">Taux d'acceptation</div></div>
+          <div><div style="font-size:18px;font-weight:800">98%</div><div style="font-size:10px;opacity:.7">Taux de complétion</div></div>
+        </div>
+      </div>
+
+      <div class="scrollable">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">📦</div>
+            <div class="stat-val">284</div>
+            <div class="stat-label">Courses totales</div>
+            <div class="stat-trend">↑ +28 cette semaine</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🏃</div>
+            <div class="stat-val">847 km</div>
+            <div class="stat-label">Distance parcourue</div>
+            <div class="stat-trend">↑ +42 km cette semaine</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">⏱️</div>
+            <div class="stat-val">24 min</div>
+            <div class="stat-label">Temps moyen / course</div>
+            <div class="stat-trend">↓ −3 min vs moyenne</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">💰</div>
+            <div class="stat-val">1.42M GNF</div>
+            <div class="stat-label">Gains ce mois</div>
+            <div class="stat-trend">↑ +180 000 vs mois passé</div>
+          </div>
+        </div>
+
+        <!-- Performance bars -->
+        <div style="margin:0 20px;background:var(--white);border-radius:16px;padding:16px;margin-bottom:16px">
+          <div style="font-size:14px;font-weight:700;margin-bottom:14px">Performance par catégorie</div>
+          <div style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+              <span>Ponctualité</span><span style="font-weight:700;color:var(--success)">96%</span>
+            </div>
+            <div style="height:6px;background:var(--bg);border-radius:3px"><div style="height:100%;width:96%;background:var(--success);border-radius:3px"></div></div>
+          </div>
+          <div style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+              <span>Satisfaction client</span><span style="font-weight:700;color:var(--success)">4.9/5</span>
+            </div>
+            <div style="height:6px;background:var(--bg);border-radius:3px"><div style="height:100%;width:98%;background:var(--success);border-radius:3px"></div></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+              <span>Taux d'acceptation</span><span style="font-weight:700;color:var(--accent)">96%</span>
+            </div>
+            <div style="height:6px;background:var(--bg);border-radius:3px"><div style="height:100%;width:96%;background:var(--accent);border-radius:3px"></div></div>
+          </div>
+        </div>
+
+        <!-- Badges -->
+        <div style="margin:0 20px 20px;background:var(--white);border-radius:16px;padding:16px">
+          <div style="font-size:14px;font-weight:700;margin-bottom:12px">🏆 Badges obtenus</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <div style="background:#FFF7ED;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700;color:var(--accent)">⚡ Éclair (100 courses)</div>
+            <div style="background:#DCFCE7;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700;color:var(--success)">⭐ Top Rated</div>
+            <div style="background:#EFF6FF;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700;color:var(--info)">🌙 Livreur de nuit</div>
+            <div style="background:#F5F3FF;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700;color:#7C3AED">🎯 Précision max</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-nav">
+        <div class="nav-btn" onclick="showPage('home')"><span class="icon">🗺️</span><span class="label">Carte</span></div>
+        <div class="nav-btn active"><span class="icon">📊</span><span class="label">Stats</span></div>
+        <div class="nav-btn" onclick="showPage('earnings')"><span class="icon">💰</span><span class="label">Gains</span></div>
+        <div class="nav-btn" onclick="showPage('profile-livreur')"><span class="icon">👤</span><span class="label">Profil</span></div>
+      </div>
+    </div>
+
+    <!-- ══════════ PAGE: EARNINGS ══════════ -->
+    <div class="page" id="pg-earnings">
+      <div class="page-header">
+        <div onclick="showPage('home')" style="cursor:pointer;font-size:20px">←</div>
+        <div style="font-size:16px;font-weight:700">Mes Gains</div>
+        <div style="margin-left:auto;font-size:12px;color:var(--accent);font-weight:700;cursor:pointer">Retirer</div>
+      </div>
+
+      <!-- Balance card -->
+      <div style="background:linear-gradient(135deg,var(--success),#4ADE80);margin:16px 20px;
+        border-radius:20px;padding:24px;color:#fff">
+        <div style="font-size:13px;opacity:.8">Solde disponible</div>
+        <div style="font-size:36px;font-weight:800;margin:4px 0">28 500 GNF</div>
+        <div style="display:flex;gap:10px;margin-top:14px">
+          <button style="flex:1;background:rgba(255,255,255,.2);color:#fff;border:none;
+            border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">
+            🟠 Retirer via Orange
+          </button>
+          <button style="flex:1;background:rgba(255,255,255,.2);color:#fff;border:none;
+            border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">
+            🟡 Retirer via MTN
+          </button>
+        </div>
+      </div>
+
+      <div class="scrollable">
+        <!-- Today breakdown -->
+        <div class="earn-bar">
+          <div style="font-size:14px;font-weight:700;margin-bottom:8px">Aujourd'hui</div>
+          <div class="earn-row">
+            <div><div style="font-size:13px;font-weight:600">Base (5 courses)</div><div style="font-size:11px;color:var(--gray)">5 000 GNF × 5</div></div>
+            <div style="font-size:14px;font-weight:700">25 000 GNF</div>
+          </div>
+          <div class="earn-row">
+            <div><div style="font-size:13px;font-weight:600">Bonus distance</div><div style="font-size:11px;color:var(--gray)">+600 GNF / km extra</div></div>
+            <div style="font-size:14px;font-weight:700">2 400 GNF</div>
+          </div>
+          <div class="earn-row">
+            <div><div style="font-size:13px;font-weight:600">Pourboires clients</div></div>
+            <div style="font-size:14px;font-weight:700;color:var(--success)">+1 000 GNF</div>
+          </div>
+          <div class="earn-row" style="border:none">
+            <div style="font-size:15px;font-weight:800">Total du jour</div>
+            <div style="font-size:15px;font-weight:800;color:var(--accent)">28 500 GNF</div>
+          </div>
+        </div>
+
+        <!-- Weekly target -->
+        <div style="margin:0 20px 16px;background:var(--white);border-radius:16px;padding:16px">
+          <div style="font-size:14px;font-weight:700;margin-bottom:10px">🎯 Objectif de la semaine</div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px;color:var(--gray)">
+            <span>150 000 GNF</span><span style="font-weight:700;color:var(--text)">125 000 / 150 000 GNF</span>
+          </div>
+          <div style="height:8px;background:var(--bg);border-radius:4px;overflow:hidden">
+            <div style="height:100%;width:83%;background:linear-gradient(90deg,var(--accent),var(--success));border-radius:4px"></div>
+          </div>
+          <div style="font-size:12px;color:var(--success);font-weight:700;margin-top:8px">
+            🔥 Plus que 25 000 GNF pour décrocher le bonus hebdomadaire !
+          </div>
+        </div>
+
+        <!-- History -->
+        <div style="margin:0 20px 20px;background:var(--white);border-radius:16px;padding:16px">
+          <div style="font-size:14px;font-weight:700;margin-bottom:10px">Historique récent</div>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+              <span>🛵 Course #4532 · Kaloum</span><span style="font-weight:700;color:var(--success)">+8 500 GNF</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+              <span>🛵 Course #4519 · Ratoma</span><span style="font-weight:700;color:var(--success)">+7 200 GNF</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px">
+              <span>💸 Retrait Orange Money</span><span style="font-weight:700;color:var(--danger)">−50 000 GNF</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-nav">
+        <div class="nav-btn" onclick="showPage('home')"><span class="icon">🗺️</span><span class="label">Carte</span></div>
+        <div class="nav-btn" onclick="showPage('stats')"><span class="icon">📊</span><span class="label">Stats</span></div>
+        <div class="nav-btn active"><span class="icon">💰</span><span class="label">Gains</span></div>
+        <div class="nav-btn" onclick="showPage('profile-livreur')"><span class="icon">👤</span><span class="label">Profil</span></div>
+      </div>
+    </div>
+
+    <!-- ══════════ PAGE: PROFILE LIVREUR ══════════ -->
+    <div class="page" id="pg-profile-livreur">
+      <div style="background:linear-gradient(135deg,#0F172A,#1F3864);padding:30px 20px 40px;flex-shrink:0">
+        <div style="text-align:center">
+          <div style="width:80px;height:80px;border-radius:50%;background:var(--accent);
+            display:flex;align-items:center;justify-content:center;font-size:36px;
+            margin:0 auto 12px;border:4px solid rgba(255,255,255,.2)">A</div>
+          <div style="color:#fff;font-size:18px;font-weight:700">Alpha Bah</div>
+          <div style="color:rgba(255,255,255,.6);font-size:12px;margin-top:2px">+224 621 00 00 01</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.1);
+            color:#fff;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;margin-top:8px">
+            🏆 Livreur Expert · ⭐ 4.9
+          </div>
+        </div>
+      </div>
+      <div class="scrollable">
+        <div style="background:var(--white);border-radius:16px;margin:16px 20px;padding:0 16px;box-shadow:0 2px 8px rgba(0,0,0,.05)">
+          <div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--border);cursor:pointer">
+            <div style="font-size:22px;width:36px;text-align:center">🏍️</div>
+            <div><div style="font-size:14px;font-weight:600">Mon véhicule</div><div style="font-size:11px;color:var(--gray)">Moto Honda CB125 · AB 4521 GN</div></div>
+            <span style="margin-left:auto;color:var(--gray)">›</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--border);cursor:pointer">
+            <div style="font-size:22px;width:36px;text-align:center">📄</div>
+            <div><div style="font-size:14px;font-weight:600">Mes documents</div><div style="font-size:11px;color:var(--success)">✅ Tous validés</div></div>
+            <span style="margin-left:auto;color:var(--gray)">›</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--border);cursor:pointer">
+            <div style="font-size:22px;width:36px;text-align:center">💰</div>
+            <div><div style="font-size:14px;font-weight:600">Compte de paiement</div><div style="font-size:11px;color:var(--gray)">Orange Money · 621 00 00 01</div></div>
+            <span style="margin-left:auto;color:var(--gray)">›</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;padding:14px 0;cursor:pointer">
+            <div style="font-size:22px;width:36px;text-align:center">📞</div>
+            <div><div style="font-size:14px;font-weight:600">Support DILIVRY</div><div style="font-size:11px;color:var(--gray)">Chat & Appel 7j/7</div></div>
+            <span style="margin-left:auto;color:var(--gray)">›</span>
+          </div>
+        </div>
+        <div style="margin:0 20px 20px">
+          <button style="background:#FEE2E2;color:var(--danger);border:none;border-radius:14px;
+            padding:14px;font-size:14px;font-weight:700;width:100%;cursor:pointer">
+            🚪 Se déconnecter
+          </button>
+        </div>
+      </div>
+      <div class="bottom-nav">
+        <div class="nav-btn" onclick="showPage('home')"><span class="icon">🗺️</span><span class="label">Carte</span></div>
+        <div class="nav-btn" onclick="showPage('stats')"><span class="icon">📊</span><span class="label">Stats</span></div>
+        <div class="nav-btn" onclick="showPage('earnings')"><span class="icon">💰</span><span class="label">Gains</span></div>
+        <div class="nav-btn active"><span class="icon">👤</span><span class="label">Profil</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const t=document.getElementById('pg-'+name);
+  if(t) t.classList.add('active');
+}
+function toggleOnline(el){
+  el.classList.toggle('on');
+  const lbl=document.getElementById('online-label');
+  if(el.classList.contains('on')){lbl.textContent='● En ligne';lbl.style.color='var(--success)'}
+  else{lbl.textContent='○ Hors ligne';lbl.style.color='var(--gray)'}
+}
+function rejectCourse(){
+  const card=document.querySelector('.incoming-card');
+  card.style.transform='translateX(100%)';
+  card.style.opacity='0';
+  card.style.transition='.3s';
+  setTimeout(()=>{card.innerHTML='<div style="text-align:center;padding:20px;color:var(--gray)">En attente d\'une nouvelle course…</div>';card.style.transform='';card.style.opacity='1'},400);
+}
+function confirmPickup(){
+  showPage('home');
+}
+// Countdown timer
+let t=28;
+const timerText=document.querySelector('.timer-text');
+const progressCircle=document.querySelector('.progress');
+const interval=setInterval(()=>{
+  t--;
+  if(timerText) timerText.textContent=t+'s';
+  if(t<=0){clearInterval(interval);rejectCourse()}
+},1000);
+</script>
+</body>
+</html>

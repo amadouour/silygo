@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DILIVRY – Application Commerçant</title>
+<style>
+  :root{
+    --primary:#1F3864;--accent:#F97316;--success:#16A34A;
+    --danger:#DC2626;--info:#0EA5E9;--gray:#64748B;--warning:#D97706;
+    --bg:#F8FAFC;--white:#fff;--border:#E2E8F0;--text:#1E293B;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',system-ui,sans-serif}
+  body{background:#1F3864;display:flex;justify-content:center;align-items:center;min-height:100vh;padding:20px}
+  .device{width:390px;height:844px;background:var(--bg);border-radius:44px;overflow:hidden;
+    position:relative;box-shadow:0 40px 80px rgba(0,0,0,.4);border:8px solid #111;
+    display:flex;flex-direction:column}
+  .status-bar{background:var(--white);padding:12px 28px 6px;display:flex;justify-content:space-between;
+    align-items:center;font-size:12px;font-weight:600;color:var(--text);flex-shrink:0}
+  .screen{flex:1;overflow:hidden;position:relative;display:flex;flex-direction:column}
+  .page{position:absolute;inset:0;background:var(--bg);transition:.3s ease;transform:translateX(100%);display:flex;flex-direction:column}
+  .page.active{transform:translateX(0)}
+  .scrollable{overflow-y:auto;flex:1}
+  .scrollable::-webkit-scrollbar{display:none}
+  .page-header{background:var(--white);padding:16px 20px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:12px;flex-shrink:0}
+
+  /* ── HEADER ── */
+  .dash-header{background:linear-gradient(135deg,#1F3864,#2563EB);padding:20px;flex-shrink:0}
+  .shop-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);
+    color:rgba(255,255,255,.9);padding:4px 12px;border-radius:20px;font-size:11px;
+    font-weight:700;margin-bottom:8px;cursor:pointer}
+  .shop-name{color:#fff;font-size:20px;font-weight:800}
+  .shop-meta{color:rgba(255,255,255,.75);font-size:12px;margin-top:4px;display:flex;align-items:center;gap:8px}
+
+  /* ── OPEN/CLOSE TOGGLE ── */
+  .open-toggle{display:flex;align-items:center;justify-content:space-between;
+    padding:12px 20px;background:var(--white);border-bottom:1px solid var(--border);flex-shrink:0}
+  .open-pill{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer}
+  .open-pill.open{background:#DCFCE7;color:var(--success)}
+  .open-pill.closed{background:#FEE2E2;color:var(--danger)}
+
+  /* ── KPI CARDS ── */
+  .kpi-row{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;padding:16px 20px;flex-shrink:0}
+  .kpi{background:var(--white);border-radius:14px;padding:14px;border:1px solid var(--border)}
+  .kpi-val{font-size:22px;font-weight:800;color:var(--text)}
+  .kpi-label{font-size:11px;color:var(--gray);font-weight:600;margin-top:2px}
+  .kpi-sub{font-size:10px;margin-top:4px;font-weight:600}
+
+  /* ── ORDER CARD ── */
+  .order-card{background:var(--white);border-radius:16px;margin:0 20px 14px;
+    overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.07);position:relative}
+  .order-header{padding:12px 16px;display:flex;align-items:center;
+    justify-content:space-between;border-bottom:1px solid var(--border)}
+  .order-body{padding:12px 16px}
+  .order-actions{padding:10px 16px;display:flex;gap:8px;border-top:1px solid var(--border)}
+  .order-timer{font-size:14px;font-weight:800;color:var(--danger)}
+  .order-item-row{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px}
+  .btn-sm{flex:1;padding:9px;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer}
+  .btn-success{background:#DCFCE7;color:var(--success)}
+  .btn-warning{background:#FFF3E0;color:var(--warning)}
+  .btn-danger{background:#FEE2E2;color:var(--danger)}
+  .btn-primary{background:var(--primary);color:#fff}
+  .new-badge{position:absolute;top:-4px;right:-4px;background:var(--danger);color:#fff;
+    font-size:10px;font-weight:800;padding:3px 8px;border-radius:10px}
+
+  /* ── TABS ── */
+  .tabs{display:flex;background:var(--white);border-bottom:1px solid var(--border);flex-shrink:0}
+  .tab{flex:1;padding:12px 8px;text-align:center;font-size:12px;font-weight:700;
+    color:var(--gray);cursor:pointer;border-bottom:2px solid transparent;transition:.2s}
+  .tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+
+  /* ── CATALOG ── */
+  .product-card{background:var(--white);border-radius:14px;margin:0 20px 12px;
+    overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.05);display:flex}
+  .product-img{width:80px;background:#FFF3E0;display:flex;align-items:center;
+    justify-content:center;font-size:34px;flex-shrink:0}
+  .product-info{flex:1;padding:12px}
+  .product-name2{font-size:13px;font-weight:700;color:var(--text)}
+  .product-price2{font-size:14px;font-weight:800;color:var(--accent);margin-top:2px}
+  .product-stock{font-size:11px;margin-top:3px;font-weight:600}
+  .stock-ok{color:var(--success)}
+  .stock-low{color:var(--warning)}
+  .stock-out{color:var(--danger)}
+  .product-actions{display:flex;flex-direction:column;justify-content:center;padding:10px;gap:6px}
+  .toggle-product{width:40px;height:22px;background:var(--success);border-radius:11px;
+    position:relative;cursor:pointer}
+  .toggle-product.off{background:var(--border)}
+  .toggle-knob2{position:absolute;width:16px;height:16px;background:#fff;border-radius:50%;top:3px;left:20px;transition:.2s}
+  .toggle-product.off .toggle-knob2{left:3px}
+
+  /* ── BOTTOM NAV ── */
+  .bottom-nav{background:var(--white);border-top:1px solid var(--border);
+    display:flex;padding:10px 0 20px;flex-shrink:0}
+  .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+    cursor:pointer;padding:4px 0}
+  .nav-btn .icon{font-size:22px;position:relative}
+  .nav-btn .label{font-size:10px;font-weight:600;color:var(--gray)}
+  .nav-btn.active .label{color:var(--primary)}
+  .order-notif{position:absolute;top:-4px;right:-6px;background:var(--danger);
+    color:#fff;font-size:9px;font-weight:700;width:16px;height:16px;
+    border-radius:50%;display:flex;align-items:center;justify-content:center}
+
+  /* ── FINANCE ── */
+  .finance-card{background:linear-gradient(135deg,var(--primary),#2563EB);
+    border-radius:20px;margin:16px 20px;padding:20px;color:#fff}
+  .finance-row{display:flex;justify-content:space-between;padding:10px 0;
+    border-bottom:1px solid rgba(255,255,255,.1);font-size:13px}
+  .finance-row:last-child{border:none}
+
+  /* ── CHART PLACEHOLDER ── */
+  .chart-bars{display:flex;align-items:flex-end;gap:6px;height:100px;padding:0 4px}
+  .bar{flex:1;border-radius:6px 6px 0 0;background:var(--primary);opacity:.15;transition:.5s}
+  .bar.active{opacity:1;background:var(--accent)}
+  .bar:nth-child(5){opacity:.4}
+  .bar:nth-child(6){opacity:.7}
+  .bar:nth-child(7){opacity:1;background:var(--success)}
+</style>
+</head>
+<body>
+<div class="device">
+  <div class="status-bar">
+    <span>9:41</span>
+    <div style="display:flex;gap:4px;align-items:center">
+      <span>●●●●</span><span>WiFi</span><span>🔋</span>
+    </div>
+  </div>
+
+  <div class="screen">
+    <!-- ══════════ PAGE: DASHBOARD ══════════ -->
+    <div class="page active" id="pg-home">
+      <div class="dash-header">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div class="shop-badge">🏪 Tableau de bord</div>
+            <div class="shop-name">Resto Le Kaloum</div>
+            <div class="shop-meta">
+              <span>📍 Kaloum, Conakry</span>
+              <span>·</span>
+              <span>⭐ 4.8 (284 avis)</span>
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div style="color:rgba(255,255,255,.7);font-size:11px">Aujourd'hui</div>
+            <div style="color:#fff;font-size:20px;font-weight:800">842 000 GNF</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Open toggle -->
+      <div class="open-toggle">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--text)">Statut de la boutique</div>
+          <div style="font-size:11px;color:var(--gray)">Horaires : 7h00 – 22h00</div>
+        </div>
+        <div class="open-pill open" onclick="toggleShop(this)">🟢 Ouvert</div>
+      </div>
+
+      <!-- KPI row -->
+      <div class="kpi-row">
+        <div class="kpi">
+          <div style="font-size:22px;margin-bottom:4px">📦</div>
+          <div class="kpi-val">24</div>
+          <div class="kpi-label">Commandes aujourd'hui</div>
+          <div class="kpi-sub" style="color:var(--success)">↑ +6 vs hier</div>
+        </div>
+        <div class="kpi">
+          <div style="font-size:22px;margin-bottom:4px">⏳</div>
+          <div class="kpi-val" style="color:var(--danger)">3</div>
+          <div class="kpi-label">En attente d'acceptation</div>
+          <div class="kpi-sub" style="color:var(--danger)">⚡ Action requise</div>
+        </div>
+        <div class="kpi">
+          <div style="font-size:22px;margin-bottom:4px">💰</div>
+          <div class="kpi-val">842K GNF</div>
+          <div class="kpi-label">CA du jour</div>
+          <div class="kpi-sub" style="color:var(--success)">↑ +22%</div>
+        </div>
+        <div class="kpi">
+          <div style="font-size:22px;margin-bottom:4px">⭐</div>
+          <div class="kpi-val">4.8</div>
+          <div class="kpi-label">Note moyenne</div>
+          <div class="kpi-sub" style="color:var(--gray)">284 avis</div>
+        </div>
+      </div>
+
+      <div class="scrollable">
+        <!-- Quick access -->
+        <div style="padding:0 20px 12px">
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">⚡ Accès rapide</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+            <div onclick="showPage('orders')" style="background:var(--white);border-radius:12px;padding:10px;text-align:center;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.05)">
+              <div style="font-size:22px;margin-bottom:4px">📦</div>
+              <div style="font-size:10px;font-weight:700;color:var(--text)">Commandes</div>
+            </div>
+            <div onclick="showPage('catalog')" style="background:var(--white);border-radius:12px;padding:10px;text-align:center;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.05)">
+              <div style="font-size:22px;margin-bottom:4px">🍽️</div>
+              <div style="font-size:10px;font-weight:700;color:var(--text)">Catalogue</div>
+            </div>
+            <div onclick="showPage('finance')" style="background:var(--white);border-radius:12px;padding:10px;text-align:center;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.05)">
+              <div style="font-size:22px;margin-bottom:4px">💰</div>
+              <div style="font-size:10px;font-weight:700;color:var(--text)">Finances</div>
+            </div>
+            <div onclick="showPage('promos')" style="background:var(--white);border-radius:12px;padding:10px;text-align:center;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.05)">
+              <div style="font-size:22px;margin-bottom:4px">🎁</div>
+              <div style="font-size:10px;font-weight:700;color:var(--text)">Promos</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Revenue chart -->
+        <div style="margin:0 20px 16px;background:var(--white);border-radius:16px;padding:16px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:14px">
+            <div style="font-size:14px;font-weight:700">Ventes (7 derniers jours)</div>
+            <div style="font-size:12px;color:var(--accent);font-weight:700">5.88M GNF</div>
+          </div>
+          <div class="chart-bars">
+            <div class="bar" style="height:45%"></div>
+            <div class="bar" style="height:60%"></div>
+            <div class="bar" style="height:40%"></div>
+            <div class="bar" style="height:75%"></div>
+            <div class="bar" style="height:55%"></div>
+            <div class="bar" style="height:85%"></div>
+            <div class="bar active" style="height:100%"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:10px;color:var(--gray)">
+            <span>Lun</span><span>Mar</span><span>Mer</span><span>Jeu</span><span>Ven</span><span>Sam</span><span>Auj.</span>
+          </div>
+        </div>
+
+        <!-- Top products -->
+        <div style="margin:0 20px 20px;background:var(--white);border-radius:16px;padding:16px">
+          <div style="font-size:14px;font-weight:700;margin-bottom:12px">🔥 Top produits du jour</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:32px;height:32px;background:#FFF3E0;border-radius:8px;display:flex;align-items:center;justify-content:center">🍖</div>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600">Poulet Braisé</div>
+                <div style="height:4px;background:var(--bg);border-radius:2px;margin-top:4px"><div style="height:100%;width:85%;background:var(--accent);border-radius:2px"></div></div>
+              </div>
+              <div style="font-size:13px;font-weight:700">x34</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:32px;height:32px;background:#FFF3E0;border-radius:8px;display:flex;align-items:center;justify-content:center">🍚</div>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600">Riz Sauce Feuille</div>
+                <div style="height:4px;background:var(--bg);border-radius:2px;margin-top:4px"><div style="height:100%;width:65%;background:var(--primary);border-radius:2px"></div></div>
+              </div>
+              <div style="font-size:13px;font-weight:700">x26</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:32px;height:32px;background:#FFF3E0;border-radius:8px;display:flex;align-items:center;justify-content:center">🐟</div>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600">Poisson Braisé</div>
+                <div style="height:4px;background:var(--bg);border-radius:2px;margin-top:4px"><div style="height:100%;width:45%;background:var(--success);border-radius:2px"></div></div>
+              </div>
+              <div style="font-size:13px;font-weight:700">x18</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-nav">
+        <div class="nav-btn active"><span class="icon">🏠</span><span class="label">Accueil</span></div>
+        <div class="nav-btn" onclick="showPage('orders')">
+          <span class="icon">📦<span class="order-notif">3</span></span>
+          <span class="label">Commandes</span>
+        </div>
+        <div class="nav-btn" onclick="showPage('catalog')"><span class="icon">🍽️</span><span class="label">Catalogue</span></div>
+        <div class="nav-btn" onclick="showPage('finance')"><span class="icon">💰</span><span class="label">Finances</span></div>
+        <div class="nav-btn" onclick="showPage('profile-shop')"><span class="icon">⚙️</span><span class="label">Boutique</span></div>
+      </div>
+    </div>
+
+    <!-- ══════════ PAGE: ORDERS ══════════ -->
+    <div class="page" id="pg-orders">
+      <div class="page-header">
+        <div onclick="showPage('home')" style="cursor:pointer;font-size:20px">←</div>
+        <div style="font-size:16px;font-weight:700">Commandes</div>
+        <div style="margin-left:auto;background:#FEE2E2;color:var(--danger);padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700">3 nouvelles</div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active">Nouvelles (3)</div>
+        <div class="tab">En prépa (2)</div>
+        <div class="tab">Prêtes (1)</div>
+        <div class="tab">Historique</div>
+      </div>
+
+      <div class="scrollable" style="padding-top:16px">
+
+        <!-- New order 1 -->
+        <div class="order-card" style="margin-bottom:14px">
+          <span class="new-badge">Nouveau !</span>
+          <div class="order-header">
+            <div>
+              <div style="font-size:13px;font-weight:800">#4535 · <span style="color:var(--gray);font-weight:600">14:58</span></div>
+              <div style="font-size:11px;color:var(--gray);margin-top:2px">👤 Ibrahim S. · 🟠 Orange Money</div>
+            </div>
+            <div class="order-timer">⏱️ 3:42</div>
+          </div>
+          <div class="order-body">
+            <div class="order-item-row"><span>🍖 Poulet Braisé x2</span><span style="font-weight:700">90 000 GNF</span></div>
+            <div class="order-item-row"><span>🥤 Jus Bissap x1</span><span style="font-weight:700">8 000 GNF</span></div>
+            <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between">
+              <span style="font-size:13px;font-weight:800">Total</span>
+              <span style="font-size:14px;font-weight:800;color:var(--accent)">98 000 GNF</span>
+            </div>
+            <div style="font-size:11px;color:var(--gray);margin-top:6px">
+              💬 <em>"Pas trop épicé s'il vous plaît, merci"</em>
+            </div>
+          </div>
+          <div class="order-actions">
+            <button class="btn-sm btn-danger" onclick="rejectOrder(this)">✕ Refuser</button>
+            <button class="btn-sm btn-warning" onclick="delayOrder(this)">⏱ +10 min</button>
+            <button class="btn-sm btn-primary" onclick="acceptOrder(this)" style="flex:2">✓ Accepter</button>
+          </div>
+        </div>
+
+        <!-- New order 2 -->
+        <div class="order-card">
+          <span class="new-badge">Nouveau !</span>
+          <div class="order-header">
+            <div>
+              <div style="font-size:13px;font-weight:800">#4534 · <span style="color:var(--gray);font-weight:600">14:55</span></div>
+              <div style="font-size:11px;color:var(--gray);margin-top:2px">👤 Binta K. · 💵 Cash</div>
+            </div>
+            <div class="order-timer" style="color:var(--warning)">⏱️ 6:10</div>
+          </div>
+          <div class="order-body">
+            <div class="order-item-row"><span>🍚 Riz Sauce Feuille x1</span><span style="font-weight:700">25 000 GNF</span></div>
+            <div class="order-item-row"><span>🐟 Poisson Braisé x1</span><span style="font-weight:700">35 000 GNF</span></div>
+            <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between">
+              <span style="font-size:13px;font-weight:800">Total</span>
+              <span style="font-size:14px;font-weight:800;color:var(--accent)">60 000 GNF</span>
+            </div>
+          </div>
+          <div class="order-actions">
+            <button class="btn-sm btn-danger">✕ Refuser</button>
+            <button class="btn-sm btn-warning">⏱ +10 min</button>
+            <button class="btn-sm btn-primary" style="flex:2">✓ Accepter</button>
+          </div>
+        </div>
+
+        <!-- In preparation -->
+        <div style="padding:10px 20px;font-size:12px;font-weight:700;color:var(--gray)">
+          EN PRÉPARATION
+        </div>
+
+        <div class="order-card">
+          <div class="order-header">
+            <div>
+              <div style="font-size:13px;font-weight:800">#4532 · <span style="color:var(--gray);font-weight:600">14:35</span></div>
+              <div style="font-size:11px;color:var(--gray);margin-top:2px">👤 Fatoumata D. · 🟠 Orange Money</div>
+            </div>
+            <span style="background:#FFF3E0;color:var(--warning);padding:4px 10px;border-radius:10px;font-size:11px;font-weight:700">⏳ En prépa</span>
+          </div>
+          <div class="order-body">
+            <div class="order-item-row"><span>🍖 Poulet Braisé x1</span><span style="font-weight:700">45 000 GNF</span></div>
+            <div class="order-item-row"><span>🍚 Riz Sauce Feuille x1</span><span style="font-weight:700">25 000 GNF</span></div>
+            <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between">
+              <span style="font-size:13px;font-weight:800">Total</span>
+              <span style="font-size:14px;font-weight:800;color:var(--accent)">70 000 GNF</span>
+            </div>
+          </div>
+          <div class="order-actions">
+            <button class="btn-sm btn-success" style="flex:1">✅ Marquer Prêt</button>
+            <button class="btn-sm" style="background:var(--bg);color:var(--gray)">📞 Contacter livreur</button>
+          </div>
+        </div>
+
+        <div style="margin-bottom:20px"></div>
+      </div>
+
+      <div class="bottom-nav">
+        <div class="nav-btn" onclick="showPage('home')"><span class="icon">🏠</span><span class="label">Accueil</span></div>
+        <div class="nav-btn active">
+          <span class="icon">📦<span class="order-notif">3</span></span>
+          <span class="label">Commandes</span>
+        </div>
+        <div class="nav-btn" onclick="showPage('catalog')"><span class="icon">🍽️</span><span class="label">Catalogue</span></div>
+        <div class="nav-btn" onclick="showPage('finance')"><span class="icon">💰</span><span class="label">Finances</span></div>
+        <div class="nav-btn" onclick="showPage('profile-shop')"><span class="icon">⚙️</span><span class="label">Boutique</span></div>
+      </div>
+    </div>
+
+    <!-- ══════════ PAGE: CATALOG ══════════ -->
+    <div class="page" id="pg-catalog">
+      <div class="page-header">
+        <div onclick="showPage('home')" style="cursor:pointer;font-size:20px">←</div>
+        <div style="font-size:16px;font-weight:700">Mon Catalogue</div>
+        <button style="margin-left:auto;background:var(--accent);color:#fff;border:none;
+          padding:7px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer">
+          + Ajouter
+        </button>
+      </div>
+
+      <div style="padding:10px 20px;display:flex;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0">
+        <div style="flex:1;background:var(--bg);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:6px">
+          <span>🔍</span><input type="text" placeholder="Rechercher un produit…" style="border:none;background:none;outline:none;font-size:13px;width:100%">
+        </div>
+        <select style="padding:8px 12px;border:1px solid var(--border);border-radius:10px;font-size:12px">
+          <option>Tous</option><option>Plats</option><option>Boissons</option><option>Desserts</option>
+        </select>
+      </div>
+
+      <div class="scrollable" style="padding-top:14px">
+        <div class="product-card">
+          <div class="product-img">🍖</div>
+          <div class="product-info">
+            <div class="product-name2">Poulet Braisé</div>
+            <div class="product-price2">45 000 GNF</div>
+            <div class="product-stock stock-ok">✅ En stock · 12 portions</div>
+            <div style="font-size:10px;color:var(--gray);margin-top:4px">⭐ 4.9 · 156 commandes ce mois</div>
+          </div>
+          <div class="product-actions">
+            <div class="toggle-product" onclick="this.classList.toggle('off')">
+              <div class="toggle-knob2"></div>
+            </div>
+            <button style="background:var(--bg);border:none;border-radius:8px;padding:5px 8px;font-size:14px;cursor:pointer">✏️</button>
+          </div>
+        </div>
+
+        <div class="product-card">
+          <div class="product-img">🍚</div>
+          <div class="product-info">
+            <div class="product-name2">Riz Sauce Feuille</div>
+            <div class="product-price2">25 000 GNF</div>
+            <div class="product-stock stock-ok">✅ En stock · 8 portions</div>
+            <div style="font-size:10px;color:var(--gray);margin-top:4px">⭐ 4.8 · 124 commandes ce mois</div>
+          </div>
+          <div class="product-actions">
+            <div class="toggle-product" onclick="this.classList.toggle('off')">
+              <div class="toggle-knob2"></div>
+            </div>
+            <button style="background:var(--bg);border:none;border-radius:8px;padding:5px 8px;font-size:14px;cursor:pointer">✏️</button>
+          </div>
+        </div>
+
+        <div class="product-card">
+          <div class="product-img">🐟</div>
+          <div class="product-info">
+            <div class="product-name2">Poisson Braisé + Attiéké</div>
+            <div class="product-price2">35 000 GNF</div>
+            <div class="product-stock stock-low">⚠️ Stock bas · 2 portions</div>
+            <div style="font-size:10px;color:var(--gray);margin-top:4px">⭐ 4.7 · 89 commandes ce mois</div>
+          </div>
+          <div class="product-actions">
+            <div class="toggle-product" onclick="this.classList.toggle('off')">
+              <div class="toggle-knob2"></div>
+            </div>
+            <button style="background:var(--bg);border:none;border-radius:8px;padding:5px 8px;font-size:14px;cursor:pointer">✏️</button>
+          </div>
+        </div>
+
+        <div class="product-card">
+          <div class="product-img">🥗</div>
+          <div class="product-info">
+            <div class="product-name2">Salade Composée</div>
+            <div class="product-price2">15 000 GNF</div>
+            <div class="product-stock stock-out">❌ Rupture de stock</div>
+            <div style="font-size:10px;color:var(--gray);margin-top:4px">⭐ 4.6 · 45 commandes ce mois</div>
+          </div>
+          <div class="product-actions">
+            <div class="toggle-product off" onclick="this.classList.toggle('off')">
+              <div class="toggle-knob2"></div>
+            </div>
+            <button style="background:var(--bg);border:none;border-radius:8px;padding:5px 8px;font-size:14px;cursor:pointer">✏️</button>
+          </div>
+        </div>
+
+        <div class="product-card">
+          <div class="product-img">🥤</div>
+          <div class="product-info">
+            <div class="product-name2">Jus Bissap</div>
+            <div class="product-price2">8 000 GNF</div>
+            <div class="product-stock stock-ok">✅ En stock · 20 verres</div>
+            <div style="font-size:10px;color:var(--gray);margin-top:4px">⭐ 4.9 · 67 commandes ce mois</div>
+          </div>
+          <div class="product-actions">
+            <div class="toggle-product" onclick="this.classList.toggle('off')">
+              <div class="toggle-knob2"></div>
+            </div>
+            <button style="background:var(--bg);border:none;border-radius:8px;padding:5px 8px;font-size:14px;cursor:pointer">✏️</button>
+          </div>
+        </div>
+
+        <div style="margin-bottom:20px"></div>
+      </div>
+
+      <div class="bottom-nav">
+        <div class="nav-btn" onclick="showPage('home')"><span class="icon">🏠</span><span class="label">Accueil</span></div>
+        <div class="nav-btn" onclick="showPage('orders')"><span class="icon">📦<span class="order-notif">3</span></span><span class="label">Commandes</span></div>
+        <div class="nav-btn active"><span class="icon">🍽️</span><span class="label">Catalogue</span></div>
+        <div class="nav-btn" onclick="showPage('finance')"><span class="icon">💰</span><span class="label">Finances</span></div>
+        <div class="nav-btn" onclick="showPage('profile-shop')"><span class="icon">⚙️</span><span class="label">Boutique</span></div>
+      </div>
+    </div>
+
+    <!-- ══════════ PAGE: FINANCES ══════════ -->
+    <div class="page" id="pg-finance">
+      <div class="page-header">
+        <div onclick="showPage('home')" style="cursor:pointer;font-size:20px">←</div>
+        <div style="font-size:16px;font-weight:700">Finances</div>
+        <div style="margin-left:auto;font-size:12px;color:var(--accent);font-weight:700;cursor:pointer">Exporter</div>
+      </div>
+
+      <div class="scrollable">
+        <div class="finance-card">
+          <div style="font-size:13px;opacity:.8;margin-bottom:4px">Solde à percevoir</div>
+          <div style="font-size:36px;font-weight:800">712 000 GNF</div>
+          <div style="font-size:12px;opacity:.7;margin-bottom:16px">Virement automatique demain</div>
+          <button style="background:rgba(255,255,255,.2);color:#fff;border:none;
+            border-radius:10px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;width:100%">
+            🟠 Demander virement immédiat
+          </button>
+        </div>
+
+        <!-- Finance breakdown -->
+        <div style="margin:16px 20px;background:var(--white);border-radius:16px;overflow:hidden">
+          <div style="padding:14px 16px;font-size:14px;font-weight:700;border-bottom:1px solid var(--border)">Ce mois – Récapitulatif</div>
+          <div class="finance-row" style="padding:12px 16px">
+            <span>💰 Chiffre d'affaires brut</span><span style="font-weight:800">5 880 000 GNF</span>
+          </div>
+          <div class="finance-row" style="padding:12px 16px">
+            <span>📊 Commission DILIVRY (15%)</span><span style="font-weight:700;color:var(--danger)">−882 000 GNF</span>
+          </div>
+          <div class="finance-row" style="padding:12px 16px">
+            <span>💵 Frais livraison perçus</span><span style="font-weight:700;color:var(--success)">+120 000 GNF</span>
+          </div>
+          <div style="padding:14px 16px;background:var(--bg);display:flex;justify-content:space-between">
+            <span style="font-weight:800;font-size:15px">Net à percevoir</span>
+            <span style="font-weight:800;font-size:15px;color:var(--success)">5 118 000 GNF</span>
+          </div>
+        </div>
+
+        <!-- Recent transactions -->
+        <div style="margin:0 20px 20px;background:var(--white);border-radius:16px;padding:16px">
+          <div style="font-size:14px;font-weight:700;margin-bottom:12px">Transactions récentes</div>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;align-items:center">
+              <div><div style="font-weight:600">Commande #4532</div><div style="font-size:11px;color:var(--gray)">Aujourd'hui 14:35</div></div>
+              <span style="font-weight:700;color:var(--success)">+59 500 GNF</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;align-items:center">
+              <div><div style="font-weight:600">Commande #4529</div><div style="font-size:11px;color:var(--gray)">Aujourd'hui 13:47</div></div>
+              <span style="font-weight:700;color:var(--success)">+272 000 GNF</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:13px;align-items:center">
+              <div><div style="font-weight:600">Virement Orange Money</div><div style="font-size:11px;color:var(--gray)">Hier 18:00</div></div>
+              <span style="font-weight:700;color:var(--danger)">−4 200 000 GNF</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-nav">
+        <div class="nav-btn" onclick="showPage('home')"><span class="icon">🏠</span><span class="label">Accueil</span></div>
+        <div class="nav-btn" onclick="showPage('orders')"><span class="icon">📦<span class="order-notif">3</span></span><span class="label">Commandes</span></div>
+        <div class="nav-btn" onclick="showPage('catalog')"><span class="icon">🍽️</span><span class="label">Catalogue</span></div>
+        <div class="nav-btn active"><span class="icon">💰</span><span class="label">Finances</span></div>
+        <div class="nav-btn" onclick="showPage('profile-shop')"><span class="icon">⚙️</span><span class="label">Boutique</span></div>
+      </div>
+    </div>
+
+    <!-- ══════════ PAGE: PROMOS ══════════ -->
+    <div class="page" id="pg-promos">
+      <div class="page-header">
+        <div onclick="showPage('home')" style="cursor:pointer;font-size:20px">←</div>
+        <div style="font-size:16px;font-weight:700">Promotions</div>
+        <button style="margin-left:auto;background:var(--accent);color:#fff;border:none;padding:7px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer">+ Créer</button>
+      </div>
+      <div class="scrollable" style="padding:16px 20px">
+        <div style="background:linear-gradient(135deg,var(--accent),#FF9800);border-radius:16px;padding:18px;color:#fff;margin-bottom:14px">
+          <div style="font-size:13px;font-weight:700;opacity:.85;margin-bottom:4px">🎉 PROMOTION ACTIVE</div>
+          <div style="font-size:18px;font-weight:800">Livraison Gratuite</div>
+          <div style="font-size:13px;opacity:.8;margin-top:4px">Pour toute commande > 50 000 GNF</div>
+          <div style="display:flex;justify-content:space-between;margin-top:12px">
+            <div style="font-size:11px;opacity:.7">Expire : 31 Mars 2026</div>
+            <div style="background:rgba(255,255,255,.2);padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer">Modifier</div>
+          </div>
+        </div>
+        <div style="background:var(--white);border-radius:16px;padding:18px;border:1.5px dashed var(--border);text-align:center;cursor:pointer" onclick="createPromo()">
+          <div style="font-size:32px;margin-bottom:8px">➕</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)">Créer une promotion</div>
+          <div style="font-size:12px;color:var(--gray);margin-top:4px">Réduction, code promo, livraison offerte…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ PAGE: PROFILE SHOP ══════════ -->
+    <div class="page" id="pg-profile-shop">
+      <div class="page-header">
+        <div onclick="showPage('home')" style="cursor:pointer;font-size:20px">←</div>
+        <div style="font-size:16px;font-weight:700">Ma Boutique</div>
+      </div>
+      <div class="scrollable">
+        <div style="padding:20px;background:var(--white);margin:16px 20px;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,.05)">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+            <div style="width:60px;height:60px;border-radius:16px;background:linear-gradient(135deg,#FF5722,#FF9800);display:flex;align-items:center;justify-content:center;font-size:28px">🍔</div>
+            <div>
+              <div style="font-size:16px;font-weight:800">Resto Le Kaloum</div>
+              <div style="font-size:12px;color:var(--success);font-weight:600">✅ Boutique vérifiée</div>
+            </div>
+            <button style="margin-left:auto;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer">Modifier</button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;font-size:13px">
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--gray)">Catégorie</span><span style="font-weight:600">🍔 Restauration</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--gray)">Adresse</span><span style="font-weight:600">Kaloum, Conakry</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--gray)">Horaires</span><span style="font-weight:600">7h00 – 22h00</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--gray)">Zone livraison</span><span style="font-weight:600">5 km autour</span></div>
+          </div>
+        </div>
+        <div style="padding:0 20px;display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+          <div style="background:var(--white);border-radius:14px;padding:14px;display:flex;align-items:center;gap:12px;cursor:pointer">
+            <div style="font-size:22px">🔔</div>
+            <div>
+              <div style="font-size:14px;font-weight:600">Notifications</div>
+              <div style="font-size:11px;color:var(--gray)">Sonnerie commandes : Activée</div>
+            </div>
+            <span style="margin-left:auto;color:var(--gray)">›</span>
+          </div>
+          <div style="background:var(--white);border-radius:14px;padding:14px;display:flex;align-items:center;gap:12px;cursor:pointer">
+            <div style="font-size:22px">💳</div>
+            <div>
+              <div style="font-size:14px;font-weight:600">Paiement</div>
+              <div style="font-size:11px;color:var(--gray)">Orange Money · 621 00 00 01</div>
+            </div>
+            <span style="margin-left:auto;color:var(--gray)">›</span>
+          </div>
+          <div style="background:var(--white);border-radius:14px;padding:14px;display:flex;align-items:center;gap:12px;cursor:pointer">
+            <div style="font-size:22px">📞</div>
+            <div>
+              <div style="font-size:14px;font-weight:600">Support DILIVRY</div>
+              <div style="font-size:11px;color:var(--gray)">Chat & téléphone 7j/7</div>
+            </div>
+            <span style="margin-left:auto;color:var(--gray)">›</span>
+          </div>
+          <button style="background:#FEE2E2;color:var(--danger);border:none;border-radius:14px;
+            padding:14px;font-size:14px;font-weight:700;width:100%;cursor:pointer">
+            🚪 Se déconnecter
+          </button>
+        </div>
+      </div>
+      <div class="bottom-nav">
+        <div class="nav-btn" onclick="showPage('home')"><span class="icon">🏠</span><span class="label">Accueil</span></div>
+        <div class="nav-btn" onclick="showPage('orders')"><span class="icon">📦<span class="order-notif">3</span></span><span class="label">Commandes</span></div>
+        <div class="nav-btn" onclick="showPage('catalog')"><span class="icon">🍽️</span><span class="label">Catalogue</span></div>
+        <div class="nav-btn" onclick="showPage('finance')"><span class="icon">💰</span><span class="label">Finances</span></div>
+        <div class="nav-btn active"><span class="icon">⚙️</span><span class="label">Boutique</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const t=document.getElementById('pg-'+name);
+  if(t) t.classList.add('active');
+}
+function toggleShop(el){
+  if(el.classList.contains('open')){
+    el.classList.remove('open');el.classList.add('closed');
+    el.textContent='🔴 Fermé';
+  }else{
+    el.classList.remove('closed');el.classList.add('open');
+    el.textContent='🟢 Ouvert';
+  }
+}
+function acceptOrder(btn){
+  const card=btn.closest('.order-card');
+  const badge=card.querySelector('.new-badge');
+  if(badge) badge.remove();
+  const header=card.querySelector('.order-header');
+  const timerEl=header.querySelector('.order-timer');
+  if(timerEl) timerEl.innerHTML='<span style="background:#FFF3E0;color:var(--warning);padding:4px 10px;border-radius:10px;font-size:11px;font-weight:700">⏳ En prépa</span>';
+  const actions=card.querySelector('.order-actions');
+  if(actions) actions.innerHTML='<button class="btn-sm btn-success" style="flex:1">✅ Marquer Prêt</button>';
+}
+function rejectOrder(btn){
+  btn.closest('.order-card').style.opacity='0';
+  setTimeout(()=>btn.closest('.order-card').remove(),300);
+}
+function delayOrder(btn){
+  btn.textContent='⏱ +10 min ajouté';
+  btn.style.background='#DCFCE7';
+  btn.style.color='var(--success)';
+  btn.disabled=true;
+}
+function createPromo(){alert('Interface de création de promotion')}
+</script>
+</body>
+</html>
